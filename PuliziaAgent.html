@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure DevOps — Gestione Agenti</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* ── TEMA LIGHT ── */
+        :root {
+            --bg-page:    #f0f2f5;
+            --bg-card:    #ffffff;
+            --bg-card2:   #f8f9fa;
+            --bg-input:   #ffffff;
+            --border:     #e0e0e0;
+            --border2:    #f0f0f0;
+            --text-1:     #1b1b1b;
+            --text-2:     #555555;
+            --text-3:     #999999;
+            --topbar-bg:  #005a9e;
+            --topbar-txt: #ffffff;
+
+            --blue:       #0078d4;
+            --blue-dark:  #005a9e;
+            --blue-light: #e6f2ff;
+            --red:        #c50f1f;
+            --red-light:  #fde7e9;
+            --red-mid:    #f9bfc2;
+            --green:      #107c10;
+            --green-light:#dff6dd;
+            --amber:      #ca5010;
+            --amber-light:#fff4ce;
+
+            --radius:    6px;
+            --radius-lg: 10px;
+            --shadow-lg: 0 4px 20px rgba(0,0,0,0.12);
+            --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+            --console-bg: #0d1117;
+            --console-fg: #c9d1d9;
+            --console-ts: #484f58;
+        }
+
+        /* ── TEMA DARK ── */
+        [data-theme="dark"] {
+            --bg-page:    #0d1117;
+            --bg-card:    #161b22;
+            --bg-card2:   #1c2128;
+            --bg-input:   #1c2128;
+            --border:     #30363d;
+            --border2:    #21262d;
+            --text-1:     #e6edf3;
+            --text-2:     #8b949e;
+            --text-3:     #6e7681;
+            --topbar-bg:  #010409;
+            --topbar-txt: #e6edf3;
+
+            --blue:       #58a6ff;
+            --blue-dark:  #1f6feb;
+            --blue-light: #1c2d3f;
+            --red:        #f85149;
+            --red-light:  #2d1215;
+            --red-mid:    #6e1c1c;
+            --green:      #3fb950;
+            --green-light:#122118;
+            --amber:      #d29922;
+            --amber-light:#2d1f00;
+
+            --console-bg: #010409;
+            --console-fg: #c9d1d9;
+            --console-ts: #6e7681;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg-page);
+            color: var(--text-1);
+            min-height: 100vh;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        /* ── TOP BAR ── */
+        .topbar {
+            background: var(--topbar-bg);
+            color: var(--topbar-txt);
+            padding: 0 24px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .topbar-title { font-size: 15px; font-weight: 600; letter-spacing: 0.01em; }
+        .topbar-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.2); margin: 0 4px; }
+        .topbar-sub { font-size: 13px; opacity: 0.7; flex: 1; }
+        .topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+        /* theme toggle */
+        .theme-toggle {
+            width: 36px; height: 36px;
+            border-radius: var(--radius);
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: white;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s;
+        }
+        .theme-toggle:hover { background: rgba(255,255,255,0.2); }
+        .icon-moon { display: none; }
+        [data-theme="dark"] .icon-sun { display: none; }
+        [data-theme="dark"] .icon-moon { display: block; }
+
+        /* ── MAIN ── */
+        .main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+        /* ── STATS ── */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: 16px 20px;
+            border: 1px solid var(--border);
+        }
+        .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); margin-bottom: 6px; }
+        .stat-value { font-size: 28px; font-weight: 700; line-height: 1; }
+        .stat-value.blue  { color: var(--blue); }
+        .stat-value.green { color: var(--green); }
+        .stat-value.red   { color: var(--red); }
+        .stat-value.amber { color: var(--amber); }
+
+        /* ── CARDS ── */
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card-header-icon {
+            width: 30px; height: 30px;
+            background: var(--blue-light);
+            border-radius: var(--radius);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--blue);
+            flex-shrink: 0;
+        }
+        .card-header h3 { font-size: 14px; font-weight: 600; color: var(--text-1); }
+        .card-body { padding: 20px 24px; }
+
+        /* ── FORMS ── */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.05em; }
+
+        input[type=text], input[type=password], input[type=date], select, textarea {
+            height: 38px;
+            padding: 0 12px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            font-family: var(--font);
+            font-size: 14px;
+            color: var(--text-1);
+            background: var(--bg-input);
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            width: 100%;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(0,120,212,0.15);
+        }
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 34px;
+        }
+        input[type=date]::-webkit-calendar-picker-indicator { filter: var(--cal-icon, none); cursor: pointer; }
+        [data-theme="dark"] { --cal-icon: invert(0.7); }
+
+        /* PAT row */
+        .pat-row { display: flex; gap: 8px; align-items: flex-end; }
+        .pat-row input { flex: 1; }
+        .pat-status {
+            font-size: 11px; font-weight: 600;
+            padding: 4px 10px; border-radius: 20px;
+            white-space: nowrap; align-self: flex-end; margin-bottom: 1px;
+        }
+        .pat-status.saved { background: var(--green-light); color: var(--green); }
+        .pat-status.unsaved { background: var(--amber-light); color: var(--amber); }
+
+        /* ── BUTTONS ── */
+        .btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            height: 36px; padding: 0 16px;
+            border: none; border-radius: var(--radius);
+            font-family: var(--font); font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: all 0.15s; white-space: nowrap;
+        }
+        .btn-primary { background: var(--blue); color: white; }
+        .btn-primary:hover { filter: brightness(1.1); }
+        .btn-danger  { background: var(--red); color: white; }
+        .btn-danger:hover { filter: brightness(1.1); }
+        .btn-ghost {
+            background: transparent; color: var(--text-2);
+            border: 1.5px solid var(--border);
+        }
+        .btn-ghost:hover { background: var(--bg-card2); border-color: var(--text-3); }
+        .btn:disabled { background: var(--bg-card2) !important; color: var(--text-3) !important; cursor: not-allowed; border-color: transparent !important; }
+
+        /* ── FILTER ROW ── */
+        .filter-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+        .filter-row .form-group { flex: 1; min-width: 200px; }
+
+        /* ── GROUP CARDS ── */
+        .group-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .group-summary {
+            padding: 13px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 1px solid transparent;
+            transition: background 0.1s;
+        }
+        .group-summary:hover { background: var(--bg-card2); }
+        .group-card.open > .group-summary {
+            border-bottom-color: var(--border2);
+            background: var(--blue-light);
+        }
+        .group-chevron { transition: transform 0.2s; color: var(--text-3); flex-shrink: 0; }
+        .group-card.open .group-chevron { transform: rotate(90deg); }
+        .group-name { font-size: 14px; font-weight: 600; flex: 1; color: var(--text-1); }
+        .group-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+        .pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+        .pill-total   { background: var(--blue-light);   color: var(--blue); }
+        .pill-online  { background: var(--green-light);  color: var(--green); }
+        .pill-offline { background: var(--red-light);    color: var(--red); }
+        .pill-del     { background: var(--amber-light);  color: var(--amber); }
+
+        .group-body { display: none; }
+        .group-card.open .group-body { display: block; }
+        .group-toolbar {
+            padding: 10px 20px;
+            background: var(--bg-card2);
+            border-bottom: 1px solid var(--border2);
+            display: flex; justify-content: flex-end;
+        }
+
+        /* ── TABLE ── */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        thead tr { background: var(--bg-card2); }
+        th {
+            padding: 10px 16px; text-align: left;
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--text-3);
+            border-bottom: 1px solid var(--border2);
+            white-space: nowrap;
+        }
+        td { padding: 10px 16px; border-bottom: 1px solid var(--border2); vertical-align: middle; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: var(--bg-card2); }
+        tbody tr.excluded { opacity: 0.35; }
+        tbody tr.excluded:hover { background: var(--bg-card); cursor: not-allowed; }
+
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11px; font-weight: 700;
+            padding: 3px 9px; border-radius: 20px;
+        }
+        .status-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+        .badge-online  { background: var(--green-light); color: var(--green); }
+        .badge-online::before  { background: var(--green); }
+        .badge-offline { background: var(--red-light);   color: var(--red); }
+        .badge-offline::before { background: var(--red); }
+
+        .date-chip {
+            font-size: 11px; font-family: 'Cascadia Code', 'Consolas', monospace;
+            background: var(--bg-card2); color: var(--text-2);
+            padding: 3px 8px; border-radius: 4px;
+            border: 1px solid var(--border2);
+        }
+        .agent-name { font-weight: 500; color: var(--text-1); }
+
+        .btn-icon {
+            width: 30px; height: 30px; padding: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 1.5px solid transparent; border-radius: var(--radius);
+            background: transparent; cursor: pointer; color: var(--text-3);
+            transition: all 0.15s;
+        }
+        .btn-icon:hover { background: var(--red-light); color: var(--red); border-color: var(--red-mid); }
+
+        /* ── CONSOLE ── */
+        .console-section { margin-top: 20px; padding-bottom: 32px; }
+        .console-toggle {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 11px; font-weight: 600; color: var(--text-3);
+            cursor: pointer; padding: 8px 0; user-select: none;
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .console-toggle svg { transition: transform 0.2s; }
+        .console-toggle.open svg { transform: rotate(90deg); }
+        #consoleBox {
+            background: var(--console-bg); color: var(--console-fg);
+            border-radius: var(--radius-lg);
+            font-family: 'Cascadia Code', 'Consolas', monospace;
+            font-size: 12px; line-height: 1.7;
+            padding: 14px 16px;
+            height: 180px; overflow-y: auto;
+            display: none;
+            border: 1px solid var(--border);
+        }
+        #consoleBox.visible { display: block; }
+        .log-info    { color: #58a6ff; }
+        .log-success { color: #3fb950; }
+        .log-error   { color: #f85149; }
+        .log-warn    { color: #d29922; }
+        .log-ts      { color: var(--console-ts); margin-right: 6px; }
+
+        /* ── EMPTY STATE ── */
+        .empty-state { text-align: center; padding: 48px 24px; color: var(--text-3); }
+        .empty-state svg { margin-bottom: 12px; opacity: 0.4; }
+        .empty-state p { font-size: 14px; }
+
+        /* ── TOAST ── */
+        #toast {
+            position: fixed; bottom: 24px; right: 24px;
+            background: var(--text-1); color: var(--bg-page);
+            padding: 12px 18px; border-radius: var(--radius-lg);
+            font-size: 13px; font-weight: 500;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 9999;
+            display: flex; align-items: center; gap: 8px;
+            border: 1px solid var(--border);
+        }
+        #toast.show { opacity: 1; }
+
+        /* ── MODAL ── */
+        .modal-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 10000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .modal-backdrop.visible { opacity: 1; pointer-events: all; }
+        .modal {
+            background: var(--bg-card); border-radius: var(--radius-lg);
+            padding: 28px; width: 400px; max-width: 92vw;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
+            transform: scale(0.95); transition: transform 0.2s;
+        }
+        .modal-backdrop.visible .modal { transform: scale(1); }
+        .modal-icon { width: 44px; height: 44px; background: var(--red-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--red); margin-bottom: 16px; }
+        .modal h4 { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: var(--text-1); }
+        .modal p  { font-size: 14px; color: var(--text-2); line-height: 1.55; margin-bottom: 24px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+        /* ── PAT MODAL ── */
+        .pat-modal-icon { width: 44px; height: 44px; background: var(--blue-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--blue); margin-bottom: 16px; }
+        #patInput { height: 38px; font-family: 'Cascadia Code','Consolas',monospace; font-size: 13px; }
+        .hint { font-size: 11px; color: var(--text-3); margin-top: 4px; line-height: 1.5; }
+
+        @media (max-width: 700px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .group-pills { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="1" y="1" width="8" height="8" rx="1.5" fill="white" opacity="0.9"/>
+        <rect x="11" y="1" width="8" height="8" rx="1.5" fill="white" opacity="0.6"/>
+        <rect x="1" y="11" width="8" height="8" rx="1.5" fill="white" opacity="0.6"/>
+        <rect x="11" y="11" width="8" height="8" rx="1.5" fill="white" opacity="0.3"/>
+    </svg>
+    <span class="topbar-title">Azure DevOps</span>
+    <div class="topbar-sep"></div>
+    <span class="topbar-sub">Gestione Agenti</span>
+    <div class="topbar-actions">
+        <button class="theme-toggle" onclick="toggleTheme()" title="Cambia tema">
+            <!-- sun -->
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="3" stroke="white" stroke-width="1.5"/>
+                <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.22 3.22l1.41 1.41M11.37 11.37l1.41 1.41M3.22 12.78l1.41-1.41M11.37 4.63l1.41-1.41" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <!-- moon -->
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M13.5 10A6 6 0 016 2.5a6 6 0 100 11 6 6 0 007.5-3.5z" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<div class="main">
+
+    <!-- STATS -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="stat-label">Agenti totali</div>
+            <div class="stat-value blue"  id="statTot">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Online</div>
+            <div class="stat-value green" id="statOn">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Offline</div>
+            <div class="stat-value red"   id="statOff">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Da eliminare</div>
+            <div class="stat-value amber" id="statDel">—</div>
+        </div>
+    </div>
+
+    <!-- CONNESSIONE -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-icon">
+                <svg width="15" height="15" fill="none" viewBox="0 0 16 16">
+                    <path d="M2 8a6 6 0 1112 0A6 6 0 012 8z" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <h3>Connessione</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>URL server</label>
+                    <input type="text" id="serverUrl" value="http://censrvvftfs002:8080/tfs/ProgettiGit" placeholder="http://server:porta/tfs/Org">
+                </div>
+                <div class="form-group">
+                    <label>Personal Access Token (PAT)</label>
+                    <div class="pat-row">
+                        <input type="password" id="patInput" placeholder="Incolla qui il tuo Personal Access Token" autocomplete="off"
+                               oninput="aggiornaStatoPAT()">
+                        <span class="pat-status unsaved" id="patStatus">Non impostato</span>
+                    </div>
+                    <div class="hint">Il PAT viene mantenuto in memoria per la durata della sessione. Non persiste dopo la chiusura della tab.</div>
+                </div>
+                <div class="form-group">
+                    <label>Agent Pool</label>
+                    <select id="poolSelect" onchange="caricaAgenti()">
+                        <option value="">— carica prima la lista —</option>
+                    </select>
+                </div>
+                <div class="form-group" style="justify-content:flex-end; padding-top:18px;">
+                    <button class="btn btn-primary" onclick="caricaPools()">
+                        <svg width="14" height="14" fill="none" viewBox="0 0 14 14">
+                            <circle cx="6" cy="6" r="5" stroke="white" stroke-width="1.5"/>
+                            <path d="M10 10l3 3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        Carica Pool
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTRI -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-icon">
+                <svg width="15" height="15" fill="none" viewBox="0 0 16 16">
+                    <path d="M2 4h12M4 8h8M6 12h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <h3>Filtri e azioni massive</h3>
+        </div>
+        <div class="card-body">
+            <div class="filter-row">
+                <div class="form-group">
+                    <label>Elimina offline inattivi prima del</label>
+                    <input type="date" id="dataFiltroOffline" onchange="aggiornaTabella()">
+                </div>
+                <button class="btn btn-ghost" onclick="document.getElementById('dataFiltroOffline').value=''; aggiornaTabella()">
+                    <svg width="13" height="13" fill="none" viewBox="0 0 14 14">
+                        <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    Azzera filtro
+                </button>
+                <button class="btn btn-danger" id="btnDeleteMassivo" onclick="eliminaTuttiOffline()" disabled>
+                    <svg width="13" height="13" fill="none" viewBox="0 0 14 14">
+                        <path d="M2 4h10M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4M12 4l-.8 8a1 1 0 01-1 .9H3.8a1 1 0 01-1-.9L2 4" stroke="white" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Elimina tutti offline (<span id="btnDelCount">0</span>)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LISTA AGENTI -->
+    <div id="listaAgentiContainer">
+        <div class="empty-state">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                <rect x="8" y="8" width="32" height="32" rx="6" stroke="currentColor" stroke-width="2"/>
+                <path d="M16 24h16M16 18h16M16 30h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <p>Configura la connessione e carica un pool per visualizzare gli agenti.</p>
+        </div>
+    </div>
+
+    <!-- CONSOLE -->
+    <div class="console-section">
+        <div class="console-toggle" id="consoleToggle" onclick="toggleConsole()">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M4 2l4 4-4 4"/></svg>
+            Log di sistema
+            <span id="consoleCount" style="font-weight:400;text-transform:none;letter-spacing:0;">— nessun evento</span>
+        </div>
+        <div id="consoleBox">In attesa...</div>
+    </div>
+</div>
+
+<!-- MODAL CONFERMA DELETE -->
+<div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+        <div class="modal-icon">
+            <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+                <path d="M10 6v5M10 14h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M8.5 2.5l-7 13A1.5 1.5 0 002.8 17.75h14.4A1.5 1.5 0 0018.5 15.5l-7-13a1.5 1.5 0 00-2.6 0z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <h4 id="modalTitle">Conferma</h4>
+        <p id="modalText"></p>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="chiudiModal()">Annulla</button>
+            <button class="btn btn-danger" id="modalConfirmBtn">Elimina</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+    // ══════════════════════════════════════════════════
+    //  STATO
+    // ══════════════════════════════════════════════════
+    let agentiCorrenti = [];
+    let logCount = 0;
+    let consoleOpen = false;
+    let pendingResolve = null;
+
+
+
+    // ══════════════════════════════════════════════════
+    //  TEMA
+    // ══════════════════════════════════════════════════
+    function toggleTheme() {
+        const html = document.documentElement;
+        const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
+        html.dataset.theme = next;
+        try { localStorage.setItem('ado-theme', next); } catch(e) {}
+    }
+    // Ripristina tema salvato
+    try {
+        const saved = localStorage.getItem('ado-theme');
+        if (saved) document.documentElement.dataset.theme = saved;
+    } catch(e) {}
+
+    // ══════════════════════════════════════════════════
+    //  TOAST
+    // ══════════════════════════════════════════════════
+    function mostraToast(msg, ok = true) {
+        const t = document.getElementById('toast');
+        t.innerHTML = `<span>${ok ? '✓' : '✗'}</span> ${msg}`;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    // ══════════════════════════════════════════════════
+    //  LOG
+    // ══════════════════════════════════════════════════
+    function scriviLog(msg, cls) {
+        const box = document.getElementById('consoleBox');
+        const ts = new Date().toLocaleTimeString('it-IT');
+        box.innerHTML += `<div><span class="log-ts">[${ts}]</span><span class="${cls}">${msg}</span></div>`;
+        box.scrollTop = box.scrollHeight;
+        logCount++;
+        document.getElementById('consoleCount').textContent = `— ${logCount} ${logCount === 1 ? 'evento' : 'eventi'}`;
+    }
+
+    function toggleConsole() {
+        consoleOpen = !consoleOpen;
+        document.getElementById('consoleBox').classList.toggle('visible', consoleOpen);
+        document.getElementById('consoleToggle').classList.toggle('open', consoleOpen);
+    }
+
+    // ══════════════════════════════════════════════════
+    //  MODAL CONFERMA (delete)
+    // ══════════════════════════════════════════════════
+    function conferma(title, text) {
+        return new Promise(resolve => {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalText').textContent = text;
+            document.getElementById('modalBackdrop').classList.add('visible');
+            pendingResolve = resolve;
+            document.getElementById('modalConfirmBtn').onclick = () => {
+                const r = pendingResolve;
+                pendingResolve = null;
+                document.getElementById('modalBackdrop').classList.remove('visible');
+                if (r) r(true);
+            };
+        });
+    }
+
+    function chiudiModal() {
+        const r = pendingResolve;
+        pendingResolve = null;
+        document.getElementById('modalBackdrop').classList.remove('visible');
+        if (r) r(false);
+    }
+
+    document.getElementById('modalBackdrop').addEventListener('click', function(e) {
+        if (e.target === this) chiudiModal();
+    });
+
+    // ══════════════════════════════════════════════════
+    //  PAT (inserimento diretto, in chiaro, solo in memoria)
+    // ══════════════════════════════════════════════════
+    function aggiornaStatoPAT() {
+        const pat = document.getElementById('patInput').value.trim();
+        const stato = document.getElementById('patStatus');
+        if (pat) {
+            stato.textContent = 'Impostato ✓';
+            stato.className = 'pat-status saved';
+        } else {
+            stato.textContent = 'Non impostato';
+            stato.className = 'pat-status unsaved';
+        }
+    }
+
+    function ottieniPATChiaro() {
+        const pat = document.getElementById('patInput').value.trim();
+        if (!pat) throw new Error('PAT non impostato. Inserisci il tuo Personal Access Token.');
+        return pat;
+    }
+
+    async function ottieniHeaders() {
+        const pat = ottieniPATChiaro();
+        return {
+            'Authorization': 'Basic ' + btoa(':' + pat),
+            'Content-Type': 'application/json'
+        };
+    }
+
+    // ══════════════════════════════════════════════════
+    //  API
+    // ══════════════════════════════════════════════════
+    async function caricaPools() {
+        const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
+        if (!serverUrl) { mostraToast('Inserisci prima l\'URL del server.', false); return; }
+        scriviLog('Caricamento pool...', 'log-info');
+        try {
+            const hdrs = await ottieniHeaders();
+            const res  = await fetch(`${serverUrl}/_apis/distributedtask/pools?api-version=5.1`, { headers: hdrs });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const sel  = document.getElementById('poolSelect');
+            sel.innerHTML = '<option value="">— seleziona un pool —</option>';
+            data.value.forEach(p => {
+                sel.innerHTML += `<option value="${p.id}">${p.name} (ID: ${p.id})</option>`;
+            });
+            scriviLog(`${data.value.length} pool caricati.`, 'log-success');
+            mostraToast(`${data.value.length} pool trovati.`);
+        } catch(e) {
+            scriviLog('Errore caricamento pool: ' + e.message, 'log-error');
+            mostraToast('Errore: ' + e.message, false);
+        }
+    }
+
+    async function caricaAgenti() {
+        const poolId = document.getElementById('poolSelect').value;
+        if (!poolId) return;
+        const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
+        scriviLog(`Caricamento agenti dal pool ${poolId}...`, 'log-info');
+        try {
+            const hdrs = await ottieniHeaders();
+            const url  = `${serverUrl}/_apis/distributedtask/pools/${poolId}/agents?includeCapabilities=true&includeLastCompletedRequest=true&api-version=5.1`;
+            const res  = await fetch(url, { headers: hdrs });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            agentiCorrenti = data.value;
+            scriviLog(`${agentiCorrenti.length} agenti caricati.`, 'log-success');
+            aggiornaTabella();
+        } catch(e) {
+            scriviLog('Errore: ' + e.message, 'log-error');
+            mostraToast('Errore: ' + e.message, false);
+        }
+    }
+
+    async function apiEliminaDirectly(id, nome) {
+        const poolId = document.getElementById('poolSelect').value;
+        const url    = `${document.getElementById('serverUrl').value.replace(/\/$/, '')}/_apis/distributedtask/pools/${poolId}/agents/${id}?api-version=5.1`;
+        const hdrs   = await ottieniHeaders();
+        const res    = await fetch(url, { method: 'DELETE', headers: hdrs });
+        if (!res.ok) throw new Error(`HTTP ${res.status} per ${nome}`);
+        scriviLog(`Eliminato: ${nome}`, 'log-warn');
+    }
+
+    async function apiElimina(id, nome) {
+        const ok = await conferma('Conferma eliminazione', `Eliminare l'agente "${nome}"? Questa azione non può essere annullata.`);
+        if (!ok) return;
+        try {
+            await apiEliminaDirectly(id, nome);
+            mostraToast(`"${nome}" eliminato.`);
+            caricaAgenti();
+        } catch(e) {
+            scriviLog('Errore eliminazione: ' + e.message, 'log-error');
+            mostraToast('Errore: ' + e.message, false);
+        }
+    }
+
+    async function eliminaGruppo(tipo) {
+        const daEliminare = agentiCorrenti.filter(a => getTipologia(a) === tipo && isDaEliminareConFiltro(a));
+        if (daEliminare.length === 0) return;
+        const ok = await conferma('Elimina gruppo', `Eliminare ${daEliminare.length} agenti offline nel gruppo "${tipo}"?`);
+        if (!ok) return;
+        scriviLog(`Eliminazione gruppo "${tipo}" (${daEliminare.length} agenti)...`, 'log-warn');
+        let errori = 0;
+        for (const a of daEliminare) {
+            try { await apiEliminaDirectly(a.id, a.name); }
+            catch(e) { errori++; scriviLog('Errore: ' + e.message, 'log-error'); }
+        }
+        mostraToast(errori === 0 ? `${daEliminare.length} agenti eliminati.` : `Eliminati con ${errori} errori.`, errori === 0);
+        caricaAgenti();
+    }
+
+    async function eliminaTuttiOffline() {
+        const daEliminare = agentiCorrenti.filter(a => isDaEliminareConFiltro(a));
+        if (daEliminare.length === 0) return;
+        const ok = await conferma('Elimina tutti gli offline', `Eliminare tutti i ${daEliminare.length} agenti offline che corrispondono al filtro?`);
+        if (!ok) return;
+        scriviLog(`Eliminazione massiva: ${daEliminare.length} agenti...`, 'log-warn');
+        let errori = 0;
+        for (const a of daEliminare) {
+            try { await apiEliminaDirectly(a.id, a.name); }
+            catch(e) { errori++; scriviLog('Errore: ' + e.message, 'log-error'); }
+        }
+        mostraToast(errori === 0 ? `${daEliminare.length} agenti eliminati.` : `Eliminati con ${errori} errori.`, errori === 0);
+        caricaAgenti();
+    }
+
+    // ══════════════════════════════════════════════════
+    //  LOGICA AGENTI
+    // ══════════════════════════════════════════════════
+    function getTipologia(agente) {
+        if (agente.userCapabilities?.Tipologia) return agente.userCapabilities.Tipologia;
+        if (agente.systemCapabilities) {
+            const caps  = agente.systemCapabilities;
+            const stack = [];
+            if (caps['MSBuild'] || caps['dotnet']) stack.push('.NET');
+            if (caps['java'])   stack.push('Java');
+            if (caps['maven'])  stack.push('Maven');
+            if (caps['npm'])    stack.push('Node.js');
+            if (caps['xcode'])  stack.push('Xcode/iOS');
+            if (caps['docker']) stack.push('Docker');
+            const os = caps['Agent.OS'];
+            const osLabel = os === 'Windows_NT' ? 'Windows' : (os === 'Darwin' ? 'macOS' : 'Linux');
+            return stack.length > 0 ? `${osLabel} — ${stack.join(', ')}` : osLabel;
+        }
+        return 'Sconosciuta';
+    }
+
+    function estraiDataAgente(agente) {
+        const dJ = agente.lastCompletedRequest?.finishTime ? new Date(agente.lastCompletedRequest.finishTime) : null;
+        const dS = agente.statusChangedOn ? new Date(agente.statusChangedOn) : null;
+        agente._dataPerFiltro = (dJ && dS) ? (dJ > dS ? dJ : dS) : (dJ || dS || null);
+        return agente._dataPerFiltro;
+    }
+
+    function isDaEliminareConFiltro(agente) {
+        if (agente.status !== 'offline') return false;
+        const strFiltro = document.getElementById('dataFiltroOffline').value;
+        if (!strFiltro) return true;
+        const dataAgente = estraiDataAgente(agente);
+        if (!dataAgente) return true;
+        const [y, m, d] = strFiltro.split('-');
+        const dF = new Date(y, m - 1, d); dF.setHours(0, 0, 0, 0);
+        const dA = new Date(dataAgente);   dA.setHours(0, 0, 0, 0);
+        return dA < dF;
+    }
+
+    // ══════════════════════════════════════════════════
+    //  RENDER
+    // ══════════════════════════════════════════════════
+    function aggiornaTabella() {
+        const container = document.getElementById('listaAgentiContainer');
+        container.innerHTML = '';
+
+        if (agentiCorrenti.length === 0) {
+            container.innerHTML = `<div class="empty-state">
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                    <rect x="8" y="8" width="32" height="32" rx="6" stroke="currentColor" stroke-width="2"/>
+                    <path d="M16 24h16M16 18h16M16 30h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <p>Nessun agente trovato nel pool selezionato.</p></div>`;
+            return;
+        }
+
+        let globalDel = 0, totalOn = 0, totalOff = 0;
+        const gruppi = {};
+
+        agentiCorrenti.forEach(a => {
+            estraiDataAgente(a);
+            if (a.status === 'online') totalOn++; else totalOff++;
+            if (isDaEliminareConFiltro(a)) globalDel++;
+            const tipo = getTipologia(a);
+            if (!gruppi[tipo]) gruppi[tipo] = [];
+            gruppi[tipo].push(a);
+        });
+
+        document.getElementById('statTot').textContent = agentiCorrenti.length;
+        document.getElementById('statOn').textContent  = totalOn;
+        document.getElementById('statOff').textContent = totalOff;
+        document.getElementById('statDel').textContent = globalDel;
+        document.getElementById('btnDelCount').textContent = globalDel;
+        document.getElementById('btnDeleteMassivo').disabled = globalDel === 0;
+
+        for (const [tipo, agenti] of Object.entries(gruppi)) {
+            const off = agenti.filter(a => a.status === 'offline').length;
+            const on  = agenti.filter(a => a.status === 'online').length;
+            const del = agenti.filter(a => isDaEliminareConFiltro(a)).length;
+            const tipoSafe = tipo.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+            const div = document.createElement('div');
+            div.className = 'group-card';
+            div.innerHTML = `
+                <div class="group-summary" onclick="toggleGruppo(this.parentElement)">
+                    <svg class="group-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span class="group-name">${tipo}</span>
+                    <div class="group-pills">
+                        <span class="pill pill-total">${agenti.length} tot</span>
+                        <span class="pill pill-online">${on} online</span>
+                        <span class="pill pill-offline">${off} offline</span>
+                        ${del > 0 ? `<span class="pill pill-del">${del} da eliminare</span>` : ''}
+                    </div>
+                </div>
+                <div class="group-body">
+                    <div class="group-toolbar">
+                        <button class="btn btn-danger" style="height:30px;font-size:12px;padding:0 12px;"
+                                onclick="eliminaGruppo('${tipoSafe}')" ${del === 0 ? 'disabled' : ''}>
+                            <svg width="12" height="12" fill="none" viewBox="0 0 14 14">
+                                <path d="M2 4h10M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4M12 4l-.8 8a1 1 0 01-1 .9H3.8a1 1 0 01-1-.9L2 4" stroke="white" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Elimina offline (${del})
+                        </button>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Nome agente</th><th>Stato</th><th>Ultima attività</th><th style="width:50px;text-align:center;">Del</th></tr>
+                            </thead>
+                            <tbody>
+                                ${agenti.map(a => {
+                                    const escluso = a.status === 'offline' && !isDaEliminareConFiltro(a);
+                                    const data    = a._dataPerFiltro ? a._dataPerFiltro.toLocaleString('it-IT') : 'N/D';
+                                    const nomeSafe = a.name.replace(/'/g, "\\'");
+                                    return `<tr class="${escluso ? 'excluded' : ''}">
+                                        <td class="agent-name">${a.name}</td>
+                                        <td><span class="status-badge ${a.status === 'online' ? 'badge-online' : 'badge-offline'}">${a.status === 'online' ? 'Online' : 'Offline'}</span></td>
+                                        <td><span class="date-chip">${data}</span></td>
+                                        <td style="text-align:center;">
+                                            <button class="btn-icon" title="Elimina agente" onclick="apiElimina(${a.id}, '${nomeSafe}')">
+                                                <svg width="14" height="14" fill="none" viewBox="0 0 14 14">
+                                                    <path d="M2 4h10M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4M12 4l-.8 8a1 1 0 01-1 .9H3.8a1 1 0 01-1-.9L2 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+            container.appendChild(div);
+        }
+    }
+
+    function toggleGruppo(el) { el.classList.toggle('open'); }
+</script>
+</body>
+</html>
